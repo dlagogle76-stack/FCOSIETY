@@ -1,0 +1,47 @@
+name: Secure Phone RDP
+
+on: 
+  workflow_dispatch:
+
+jobs:
+  secure-rdp:
+    runs-on: windows-latest
+
+    steps:
+    - name: Configure RDP
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+
+    - name: Create User
+      run: |
+        $Password = ConvertTo-SecureString "PhonePass123!" -AsPlainText -Force
+        New-LocalUser "PhoneUser" -Password $Password
+        Add-LocalGroupMember -Group "Remote Desktop Users" -Member "PhoneUser"
+        Add-LocalGroupMember -Group "Administrators" -Member "PhoneUser"
+
+    - name: Install Tailscale
+      run: |
+        Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "ts.exe"
+        Start-Process -FilePath ".\ts.exe" -ArgumentList "/qn" -Wait
+
+    - name: Start Tailscale
+      shell: cmd
+      run: |
+        "C:\Program Files\Tailscale\tailscale.exe" up --authkey=tskey-auth-kUFd7FjD1s11CNTRL-PDGwnGpH7p2B8rLpykAjo2BMjQ7sifp6
+
+    - name: Get IP
+      run: |
+        $ip = (& "C:\Program Files\Tailscale\tailscale.exe" ip -4)
+        Write-Host "----------------------------------------"
+        Write-Host "Ваш IP ДЛЯ ПОДКЛЮЧЕНИЯ: $ip"
+        Write-Host "----------------------------------------"
+
+    - name: Keep Alive
+      run: |
+        $TargetTime = (Get-Date).AddHours(6)
+        while ((Get-Date) -lt $TargetTime) {
+            Start-Sleep -Seconds 60
+            Write-Host "Машина работает..."
+        }
+        
