@@ -20,10 +20,14 @@ jobs:
         Add-LocalGroupMember -Group "Remote Desktop Users" -Member "PhoneUser"
         Add-LocalGroupMember -Group "Administrators" -Member "PhoneUser"
 
-    - name: Install Tailscale
+    - name: Install Tailscale (Fast Setup)
       run: |
-        Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "ts.exe"
-        Start-Process -FilePath ".\ts.exe" -ArgumentList "/qn" -Wait
+        # Скачиваем сразу полную версию в ZIP, чтобы не виснуть на онлайн-установщике
+        Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-amd64-latest.zip" -OutFile "tailscale.zip"
+        Expand-Archive -Path "tailscale.zip" -DestinationPath "C:\Program Files\Tailscale" -Force
+        # Вытаскиваем файлы из подпапки архива в основной корень
+        $subFolder = Get-ChildItem -Path "C:\Program Files\Tailscale" -Directory | Select-Object -First 1
+        Move-Item -Path "$($subFolder.FullName)\*" -Destination "C:\Program Files\Tailscale" -Force
 
     - name: Start Tailscale
       shell: cmd
