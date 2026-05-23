@@ -1,4 +1,4 @@
-name: Secure Phone RDP
+name: RDP
 
 on: 
   workflow_dispatch:
@@ -8,44 +8,44 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Configure RDP
+    - name: Configure Core RDP Settings
       run: |
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-    - name: Create User
+    - name: Create RDP User
       run: |
         $Password = ConvertTo-SecureString "PhonePass123!" -AsPlainText -Force
-        New-LocalUser "PhoneUser" -Password $Password
-        Add-LocalGroupMember -Group "Remote Desktop Users" -Member "PhoneUser"
-        Add-LocalGroupMember -Group "Administrators" -Member "PhoneUser"
+        New-LocalUser "RDP" -Password $Password -Description "RDP User"
+        Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
+        Add-LocalGroupMember -Group "Administrators" -Member "RDP"
 
-    - name: Install Tailscale (Fast Setup)
+    - name: Install Tailscale
       run: |
-        # Скачиваем сразу полную версию в ZIP, чтобы не виснуть на онлайн-установщике
-        Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-amd64-latest.zip" -OutFile "tailscale.zip"
-        Expand-Archive -Path "tailscale.zip" -DestinationPath "C:\Program Files\Tailscale" -Force
-        # Вытаскиваем файлы из подпапки архива в основной корень
-        $subFolder = Get-ChildItem -Path "C:\Program Files\Tailscale" -Directory | Select-Object -First 1
-        Move-Item -Path "$($subFolder.FullName)\*" -Destination "C:\Program Files\Tailscale" -Force
+        # Скачиваем официальный стабильный MSI-пакет (полная версия)
+        Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-1.98.2-amd64.msi" -OutFile "tailscale.msi"
+        # Запускаем тихую установку MSI
+        Start-Process msiexec.exe -ArgumentList '/i tailscale.msi /qn /norestart' -Wait
 
     - name: Start Tailscale
       shell: cmd
       run: |
         "C:\Program Files\Tailscale\tailscale.exe" up --authkey=tskey-auth-kUFd7FjD1s11CNTRL-PDGwnGpH7p2B8rLpykAjo2BMjQ7sifp6
 
-    - name: Get IP
+    - name: Verify RDP Access
       run: |
-        $ip = (& "C:\Program Files\Tailscale\tailscale.exe" ip -4)
-        Write-Host "----------------------------------------"
-        Write-Host "Ваш IP ДЛЯ ПОДКЛЮЧЕНИЯ: $ip"
-        Write-Host "----------------------------------------"
+        $tsIp = (& "C:\Program Files\Tailscale\tailscale.exe" ip -4)
+        Write-Host "--- TAILSCALE UP ---"
+        Write-Host "Tailscale IP: $tsIp"
+        Write-Host "--- YOUR RDP READY ---"
+        Write-Host "User: RDP"
+        Write-Host "Pass: PhonePass123!"
 
     - name: Keep Alive
       run: |
         $TargetTime = (Get-Date).AddHours(6)
         while ((Get-Date) -lt $TargetTime) {
             Start-Sleep -Seconds 60
-            Write-Host "Машина работает..."
+            Write-Host "Running..."
         }
         
